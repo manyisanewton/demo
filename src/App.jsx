@@ -20,6 +20,8 @@ import TechWriterPosts from './techWriter/TechWriterPosts';
 import Content from './techWriter/Content';
 import TechWriterFlaggedContent from './techWriter/TechWriterFlaggedContent';
 import TechWriterProfile from './techWriter/TechWriterProfile';
+import Code from "./admin/Code"
+import NewPassword from "./admin/NewPassword"
 
 // import AdminHome from './dashboards/admin/AdminHome';
 // import UserManagement from './dashboards/admin/UserManagement';
@@ -82,7 +84,8 @@ function App() {
         <Route path="/feedpage" element={<FeedPage />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/home" element={<Home2/>}/>
-
+        <Route path="/code" element={<Code />} />
+        <Route path="/new-password" element={<NewPassword />} />
         <Route
           path="/Home2"
           element={
