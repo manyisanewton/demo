@@ -24,7 +24,7 @@ class RegisterSchema(Schema):
     name = fields.Str(required=True, validate=validate.Length(max=128))
     email = fields.Email(required=True, validate=validate.Length(max=128))
     phone = fields.Str(required=False, validate=validate.Length(max=15))
-    role = fields.Str(required=False, validate=validate.OneOf(["Admin", "TechWriter", "User"]))
+    role = fields.Str(required=True, validate=validate.OneOf(["Admin", "TechWriter", "User"]))
     password = fields.Str(required=True, validate=validate.Length(min=8))
 
 class LoginSchema(Schema):
@@ -91,18 +91,20 @@ def register():
         logger.exception("Registration failed")
         return jsonify({"error": "Registration failed."}), 500
 
-    # Assign role if provided (default to "User")
-    role_name = d.get("role", "User")
+    # Assign role (required in schema, so always provided)
+    role_name = d["role"]
     role = Role.query.filter_by(name=role_name).first()
-    if role:
-        user_role = UserRole(user_id=u.id, role_id=role.id)
-        db.session.add(user_role)
-        try:
-            db.session.commit()
-        except SQLAlchemyError:
-            db.session.rollback()
-            logger.exception("Failed to assign role to user %s", u.id)
-            return jsonify({"error": "Failed to assign role."}), 500
+    if not role:
+        db.session.rollback()
+        return jsonify({"error": f"Role {role_name} not found."}), 400
+    user_role = UserRole(user_id=u.id, role_id=role.id)
+    db.session.add(user_role)
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        logger.exception("Failed to assign role to user %s", u.id)
+        return jsonify({"error": "Failed to assign role."}), 500
 
     at, rtok = _create_tokens(u.id)
     return (
@@ -110,6 +112,7 @@ def register():
             message="Registration successful.",
             access_token=at,
             refresh_token=rtok,
+            role=role_name  # Include primary role
         ),
         201,
     )
@@ -121,11 +124,13 @@ def login():
     if not u or not bcrypt.check_password_hash(u.password_hash, d["password"]):
         return jsonify({"error": "Invalid credentials."}), 401
     at, rtok = _create_tokens(u.id)
+    primary_role = u.get_primary_role()  # Use User model's get_primary_role()
     return (
         jsonify(
             message=f"Welcome back, {u.name or u.email}.",
             access_token=at,
             refresh_token=rtok,
+            role=primary_role  # Include primary role
         ),
         200,
     )
@@ -162,6 +167,7 @@ def me():
     if not u:
         return jsonify({"error": "User not found."}), 404
     roles = [{"id": ur.role_id, "name": ur.role.name} for ur in u.user_roles]
+    primary_role = u.get_primary_role()  # Use User model's get_primary_role()
     return (
         jsonify(
             id=u.id,
@@ -169,10 +175,12 @@ def me():
             name=u.name,
             is_active=u.is_active,
             created_at=u.created_at.isoformat(),
-            roles=roles,  # Add roles to the response
+            roles=roles,
+            primary_role=primary_role  # Include primary role
         ),
         200,
     )
+
 @auth_bp.route("/request-password-reset", methods=["POST"])
 def request_password_reset():
     db.session.expire_all()
@@ -258,8 +266,14 @@ def callback_google():
         u = User(email=em, name=ui.get("name", ""), password_hash=ph)
         db.session.add(u)
         db.session.commit()
+        # Assign default User role
+        role = Role.query.filter_by(name="User").first()
+        if role:
+            db.session.add(UserRole(user_id=u.id, role_id=role.id))
+            db.session.commit()
     at, rtok = _create_tokens(u.id)
-    return redirect(f"http://localhost:5173/auth/callback?access_token={at}&refresh_token={rtok}")
+    primary_role = u.get_primary_role()
+    return redirect(f"http://localhost:5173/auth/callback?access_token={at}&refresh_token={rtok}&role={primary_role}")
 
 @auth_bp.route("/login/github")
 def login_github():
@@ -284,8 +298,14 @@ def callback_github():
         u = User(email=em, name=pr.get("name", ""), password_hash=ph)
         db.session.add(u)
         db.session.commit()
+        # Assign default User role
+        role = Role.query.filter_by(name="User").first()
+        if role:
+            db.session.add(UserRole(user_id=u.id, role_id=role.id))
+            db.session.commit()
     at, rtok = _create_tokens(u.id)
-    return redirect(f"http://localhost:5173/auth/callback?access_token={at}&refresh_token={rtok}")
+    primary_role = u.get_primary_role()
+    return redirect(f"http://localhost:5173/auth/callback?access_token={at}&refresh_token={rtok}&role={primary_role}")
 
 @auth_bp.route("/promote/<int:user_id>/<role_name>", methods=["POST"])
 @jwt_required()

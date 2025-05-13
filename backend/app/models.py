@@ -463,6 +463,16 @@ class PasswordResetToken(db.Model):
     def __repr__(self):
         return f"<PasswordResetToken id={self.id} user_id={self.user_id}>"
 
+class PhoneOTP(db.Model):
+    __tablename__ = "phone_otps"
+    id = db.Column(db.Integer, primary_key=True)
+    phone_number = db.Column(db.String(20), nullable=False)
+    otp_code = db.Column(db.String(6), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=func.now(), nullable=False)
+    def __repr__(self):
+        return f"<PhoneOTP id={self.id} phone={self.phone_number} code={self.otp_code}>"
+
 class EmailVerificationToken(db.Model):
     __tablename__ = "email_verification_tokens"
     id = db.Column(db.Integer, primary_key=True)

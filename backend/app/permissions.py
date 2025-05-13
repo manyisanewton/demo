@@ -3,7 +3,8 @@ from flask import current_app, abort
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import and_, exists
 from . import db
-from .models import UserRole, RolePermission, Permission
+from .models import UserRole, RolePermission, Permission, User
+
 def requires_permission(permission_name: str):
     if not isinstance(permission_name, str) or not permission_name:
         raise KeyError("permission_name must be a non-empty string")
@@ -42,6 +43,28 @@ def requires_permission(permission_name: str):
                     permission_name,
                 )
                 abort(403, description="Forbidden")
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+def requires_role(role_name: str):
+    if not isinstance(role_name, str) or not role_name:
+        raise KeyError("role_name must be a non-empty string")
+    def decorator(fn):
+        @wraps(fn)
+        @jwt_required()
+        def wrapper(*args, **kwargs):
+            user_id = int(get_jwt_identity())
+            user = db.session.get(User, user_id)
+            if not user:
+                abort(404, description="User not found")
+            primary_role = user.get_primary_role()
+            if primary_role != role_name:
+                current_app.logger.warning(
+                    "Role denied: user %s (role: %s) tried to access route requiring %s",
+                    user_id, primary_role, role_name
+                )
+                abort(403, description=f"Requires {role_name} role")
             return fn(*args, **kwargs)
         return wrapper
     return decorator

@@ -19,6 +19,7 @@ def handle_validation_error(err):
     return jsonify(errors=err.messages), 400
 def _profile_to_dict(u: User):
     profile = u.profile or {}
+    roles = [role.name for role in u.roles]
     return {
         "user_id": u.id,
         "id": u.id,
@@ -29,6 +30,8 @@ def _profile_to_dict(u: User):
         "bio": getattr(profile, "bio", None),
         "avatar_url": getattr(profile, "avatar_url", None),
         "social_links": getattr(profile, "social_links", None),
+        "roles": roles,
+        "primary_role": u.get_primary_role()  # Include primary role
     }
 @user_bp.route("/me/profile", methods=["GET"])
 @jwt_required()
@@ -83,5 +86,6 @@ def promote_user(user_id, role_name):
     roles = [role.name for role in u.roles]
     return jsonify(
         message=f"{u.email} promoted to {role_name}",
-        roles=roles
+        roles=roles,
+        primary_role=u.get_primary_role()  # Include primary role
     ), 200
