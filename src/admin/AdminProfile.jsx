@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AdminProfile.css';
-import AdminNavbar from '../../components/Navbar/AdminNavbar';
-import Footer from '../../components/Footer';
+import AdminNavbar from '../components/Navbar/AdminNavbar';
+import Footer from '../components/Footer';
 
 const AdminProfile = () => {
   const [profile, setProfile] = useState({

@@ -4,7 +4,6 @@ import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { register } from '../api';
-import { getUserProfile } from '../api';
 
 function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -12,7 +11,7 @@ function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState('User');
+  const [role, setRole] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -25,19 +24,18 @@ function RegisterPage() {
       setError('Passwords do not match');
       return;
     }
+    if (!role) {
+      setError('Please select a role');
+      return;
+    }
     try {
       const { data } = await register(name, email, phone, role, password);
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
-      await api.patch('/profiles/me', { phone }).catch(() => {});
-
-      // Fetch user profile to determine role
-      const profileResponse = await getUserProfile();
-      const userRoles = profileResponse.data.roles || []; // Adjust based on actual response structure
-      const userRole = userRoles.length > 0 ? userRoles[0].name : 'User'; // Default to 'User' if no roles
+      localStorage.setItem('user_role', data.role); // Store role for ProtectedRoute
 
       // Navigate based on role
-      switch (userRole) {
+      switch (data.role) {
         case 'Admin':
           navigate('/adminsdashboard');
           break;
@@ -47,8 +45,8 @@ function RegisterPage() {
         case 'User':
           navigate('/usersdashboard');
           break;
-        // default:
-        //   navigate('/usersdashboard'); // Default fallback
+        default:
+          setError('Unknown role');
       }
     } catch (err) {
       const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Registration failed';
@@ -103,11 +101,10 @@ function RegisterPage() {
               placeholder='Phone'
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              required
             />
-            <label>Roles:</label>
+            <label>Role:</label>
             <select value={role} onChange={(e) => setRole(e.target.value)} required>
-              <option value="" disabled>Select your Role:</option>
+              <option value="" disabled>Select your Role</option>
               <option value="Admin">Admin</option>
               <option value="TechWriter">Tech Writer</option>
               <option value="User">User</option>
@@ -130,7 +127,7 @@ function RegisterPage() {
             <label>Confirm Password:</label>
             <div className='password-wrapper'>
               <input
-                type={showConfirmPassword ? 'text' : 'password'}
+                type={showPassword ? 'text' : 'password'}
                 placeholder='Confirm Password'
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

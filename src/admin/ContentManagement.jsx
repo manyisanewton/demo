@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchContent, updateContent, deleteContent, addRecentActivity } from '../../utils/MockData';
+import { fetchContent, updateContent, deleteContent, addRecentActivity } from '../utils/MockData';
 import './ContentManagement.css';
-import AdminNavbar from '../../components/Navbar/AdminNavbar';
-import Footer from '../../components/Footer';
+import AdminNavbar from '../components/Navbar/AdminNavbar';
+import Footer from '../components/Footer';
 
 const SkeletonContentRow = () => (
   <div className="skeleton-content-row">

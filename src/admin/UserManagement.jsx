@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchUsers, addUser, updateUser, deactivateUser, activateUser, addRecentActivity } from '../../utils/MockData';
+import { fetchUsers, addUser, updateUser, deactivateUser, activateUser, addRecentActivity } from '../utils/MockData';
 import './UserManagement.css';
-import AdminNavbar from '../../components/Navbar/AdminNavbar';
-import Footer from '../../components/Footer';
+import AdminNavbar from '../components/Navbar/AdminNavbar';
+import Footer from '../components/Footer';
 import { FaSearch } from 'react-icons/fa';
 
 const SkeletonUserRow = () => (

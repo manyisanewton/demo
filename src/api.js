@@ -45,6 +45,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_role');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }
@@ -60,24 +61,40 @@ api.interceptors.response.use(
 const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
 const useCorsProxy = (url) => `${CORS_PROXY}${url}`;
 
-export const login = (email, password) =>
-  api.post('/auth/login', { email, password });
+export const login = async (email, password) => {
+  const response = await api.post('/auth/login', { email, password });
+  return response;
+};
 
-export const register = (name, email, phone, role, password) =>
-  api.post('/auth/register', { name, email, phone, role, password })
-    .then(response => response)
-    .catch(error => {
-      if (error.response && error.response.status === 409) {
-        throw new Error(error.response.data.error || 'Registration conflict');
-      }
-      throw error;
-    });
+export const register = async (name, email, phone, role, password) => {
+  const response = await api.post('/auth/register', { name, email, phone, role, password });
+  return response;
+};
 
-export const getUserProfile = () =>
-  api.get('/auth/me');
+export const getUserProfile = async () => {
+  const response = await api.get('/auth/me');
+  return response;
+};
 
-export const getNotifications = () =>
-  api.get('/notifications');
+export const requestPasswordReset = async (email) => {
+  const response = await api.post('/auth/request-password-reset', { identifier: email });
+  return response;
+};
+
+export const verifyResetCode = async (email, code) => {
+  const response = await api.post('/auth/verify-reset-code', { email, code });
+  return response;
+};
+
+export const resetPassword = async (code, new_password, confirm_password) => {
+  const response = await api.post('/auth/reset-password', { code, new_password, confirm_password });
+  return response;
+};
+
+export const getNotifications = async () => {
+  const response = await api.get('/notifications');
+  return response;
+};
 
 export const getContent = async (page = 1, perPage = 10) => {
   try {

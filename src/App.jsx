@@ -1,6 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { getUserProfile } from './api';
 
 import RegistrationPage from './pages/RegistrationPage';
 import LoginPage from './pages/LoginPage';
@@ -20,50 +19,44 @@ import TechWriterPosts from './techWriter/TechWriterPosts';
 import Content from './techWriter/Content';
 import TechWriterFlaggedContent from './techWriter/TechWriterFlaggedContent';
 import TechWriterProfile from './techWriter/TechWriterProfile';
-import Code from "./admin/Code"
-import NewPassword from "./admin/NewPassword"
+import Code from "./admin/Code";
+import NewPassword from "./admin/NewPassword";
 
-// import AdminHome from './dashboards/admin/AdminHome';
-// import UserManagement from './dashboards/admin/UserManagement';
+import AdminHome from './admin/AdminHome';
+import CategoriesMangement from './admin/CategoriesManagement';
+import AdminProfile from './admin/AdminProfile';
+import UserManagement from './admin/UserManagement';
+import ContentManagement from './admin/ContentManagement';
 
-// Placeholder components for dashboards (replace with actual components if needed)
-const UsersDashboard = () => <div>Users Dashboard</div>;
-const TechWriterDashboard = () => <div>Tech Writer Dashboard</div>;
-// const AdminsDashboard = () => <div>Admins Dashboard</div>;
-
-function ProtectedRoute({ children }) {
-  const [userRole, setUserRole] = useState(null);
+function ProtectedRoute({ children, requiredRole }) {
   const location = useLocation();
+  const [userRole, setUserRole] = useState(null);
 
   useEffect(() => {
-    const fetchUserRole = async () => {
-      try {
-        const response = await getUserProfile();
-        const userRoles = response.data.roles || [];
-        const role = userRoles.length > 0 ? userRoles[0].name : 'User';
-        setUserRole(role);
-      } catch (err) {
-        console.error('Error fetching user role:', err);
-        setUserRole('User'); // Default to User if fetch fails
-      }
-    };
-    fetchUserRole();
+    const role = localStorage.getItem('user_role');
+    if (!role) {
+      navigate('/login', { state: { error: 'Please log in to access this page' } });
+    } else {
+      setUserRole(role);
+    }
   }, []);
 
   if (userRole === null) {
-    return <div>Loading...</div>; // Show loading state while fetching role
+    return <div>Loading...</div>;
   }
 
-  const path = location.pathname;
-  if (path === '/Home2' && userRole !== 'User') {
-    return <Navigate to={userRole === 'Admin' ? '/TechHome' : '/TechHome'} replace />;
+  if (userRole !== requiredRole) {
+    switch (userRole) {
+      case 'Admin':
+        return <Navigate to="/adminsdashboard" replace />;
+      case 'TechWriter':
+        return <Navigate to="/techwriterdashboard" replace />;
+      case 'User':
+        return <Navigate to="/usersdashboard" replace />;
+      default:
+        return <Navigate to="/login" replace />;
+    }
   }
-  if (path === '/techwriterdashboard' && userRole !== 'TechWriter') {
-    return <Navigate to={userRole === 'Admin' ? '/adminsdashboard' : '/usersdashboard'} replace />;
-  }
-  // if (path === '/adminsdashboard' && userRole !== 'Admin') {
-  //   return <Navigate to={userRole === 'TechWriter' ? '/techwriterdashboard' : '/usersdashboard'} replace />;
-  // }
 
   return children;
 }
@@ -78,47 +71,52 @@ function App() {
         <Route path="/forgot-password" element={<ResetPasswordPage />} />
         <Route path="/register" element={<RegistrationPage />} />
         <Route path="/feed" element={<FeedSection />} />
-        <Route path="/notifications" element={<Notificationss />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/category" element={<Categories />} />
         <Route path="/feedpage" element={<FeedPage />} />
         <Route path="/notifications" element={<Notifications />} />
-        <Route path="/home" element={<Home2/>}/>
+        <Route path="/home" element={<Home2 />} />
         <Route path="/code" element={<Code />} />
         <Route path="/new-password" element={<NewPassword />} />
+        <Route path="/notificationss" element={<Notificationss />} />
+
         <Route
-          path="/Home2"
+          path="/usersdashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="User">
               <Home2 />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/TechHome"
+          path="/techwriterdashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="TechWriter">
               <TechHome />
             </ProtectedRoute>
           }
         />
-        {/* <Route
+        <Route
           path="/adminsdashboard"
           element={
-            <ProtectedRoute>
-              <AdminsDashboard />
+            <ProtectedRoute requiredRole="Admin">
+              <AdminHome />
             </ProtectedRoute>
           }
-        /> */}
+        />
+        <Route path="/techhome" element={<TechHome />} />
+        <Route path="/my-posts" element={<TechWriterPosts />} />
+        <Route path="/content" element={<Content />} />
+        <Route path="/tech-writer-flagged" element={<TechWriterFlaggedContent />} />
+        <Route path="/tech-writer-profile" element={<TechWriterProfile />} />
+        <Route path="/admin-home" element={<AdminHome />} />
+        <Route path="/user-management" element={<UserManagement />} />
 
-        <Route path="techhome" element={<TechHome />} />
-        <Route path="my-posts" element={<TechWriterPosts />} />
-        <Route path="content" element={<Content />} />
-        <Route path="tech-writer-flagged" element={<TechWriterFlaggedContent />} />
-        <Route path="tech-writer-profile" element={<TechWriterProfile />} />
+        <Route path="/categories-management" element={<CategoriesMangement />} />
+        <Route path="/admin-profile" element={<AdminProfile />} />
+        <Route path="/content-management" element={<ContentManagement />} />
 
-        {/* <Route path="admin-home" element={<AdminHome />} />
-        <Route path="user-management" element={<UserManagement />} /> */}
+        {/* Redirect all unknown routes to the landing page */}   
       </Routes>
     </Router>
   );

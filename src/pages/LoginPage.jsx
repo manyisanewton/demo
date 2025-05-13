@@ -4,7 +4,6 @@ import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { login } from '../api';
-import { getUserProfile } from '../api';
 
 function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -27,25 +26,21 @@ function LoginPage() {
       const { data } = await login(email, password);
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
-
-      // Fetch user profile to determine role
-      const profileResponse = await getUserProfile();
-      const userRoles = profileResponse.data.roles || []; // Adjust based on actual response structure
-      const userRole = userRoles.length > 0 ? userRoles[0].name : 'User'; // Default to 'User' if no roles
+      localStorage.setItem('user_role', data.role); // Store role for ProtectedRoute
 
       // Navigate based on role
-      switch (userRole) {
+      switch (data.role) {
         case 'Admin':
-          navigate('/Home2');
+          navigate('/adminsdashboard');
           break;
         case 'TechWriter':
-          navigate('/techhome');
+          navigate('/techwriterdashboard');
           break;
         case 'User':
-          navigate('/Home2');
+          navigate('/usersdashboard');
           break;
-        // default:
-        //   navigate('/usersdashboard'); // Default fallback
+        default:
+          setError('Unknown role');
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');

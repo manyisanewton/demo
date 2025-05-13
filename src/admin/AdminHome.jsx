@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchUsers, fetchContent, fetchCategories, fetchRecentActivity } from '../../utils/MockData';
+import { fetchUsers, fetchContent, fetchCategories, fetchRecentActivity } from '../utils/MockData';
 import './AdminHome.css';
-import AdminNavbar from '../../components/Navbar/AdminNavbar';
-import Footer from '../../components/Footer';
+import AdminNavbar from '../components/Navbar/AdminNavbar';
+import Footer from '../components/Footer';
 
 const SkeletonStatCard = () => (
   <div className="skeleton-stat-card">
