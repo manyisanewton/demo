@@ -100,7 +100,7 @@ function App() {
           path="/adminsdashboard"
           element={
             <ProtectedRoute requiredRole="Admin">
-              <AdminHome />
+              <admin-home />
             </ProtectedRoute>
           }
         />

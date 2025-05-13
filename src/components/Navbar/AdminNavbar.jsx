@@ -19,7 +19,7 @@ const AdminNavbar = () => {
       </ul>
       <ul className='logout-link'> 
         <li>
-          <NavLink to="/logout" className={({ isActive }) => isActive ? 'active' : ''}>
+          <NavLink to="/" className={({ isActive }) => isActive ? 'active' : ''}>
             <FaSignOutAlt style={{ color: '#ffffff', fontSize: '20px' }} /> Logout
           </NavLink>
         </li>

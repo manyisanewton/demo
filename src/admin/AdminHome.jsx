@@ -75,10 +75,10 @@ const AdminDashboard = () => {
             )}
           </div>
           <div className="quick-actions">
-            <button onClick={() => navigate('/admin/content')}>Approve Content</button>
-            <button onClick={() => navigate('/admin/content')}>Review Flags</button>
-            <button onClick={() => navigate('/admin/categories')}>Manage Categories</button>
-            <button onClick={() => navigate('/admin/users')}>Deactivate User</button>
+            <button onClick={() => navigate('/content-management')}>Approve Content</button>
+            <button onClick={() => navigate('/content-management')}>Review Flags</button>
+            <button onClick={() => navigate('/categories-management')}>Manage Categories</button>
+            <button onClick={() => navigate('/user-management')}>Deactivate User</button>
           </div>
         </div>
         <div className="recent-activity">

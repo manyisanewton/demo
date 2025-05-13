@@ -1,20 +1,17 @@
-import { useState, useEffect } from 'react';
-import { getContent, getVideos, getArticles, getArticleById, getAudio, getArticleComments } from '../api';
+import React, { useState, useEffect } from "react";
 import './FeedSection.css';
-// import Navbar from "../components/Navbar/UserNavbar";
+import axios from 'axios';
 
 function Feed() {
   const [content, setContent] = useState([]);
   const [videos, setVideos] = useState([]);
   const [articles, setArticles] = useState([]);
-  const [audio, setAudio] = useState([]);
   const [error, setError] = useState('');
 
   // Pagination states
   const [contentPage, setContentPage] = useState(1);
   const [videosPage, setVideosPage] = useState(1);
   const [articlesPage, setArticlesPage] = useState(1);
-  const [audioPage, setAudioPage] = useState(1);
   const itemsPerPage = 3;
 
   // Modal states
@@ -23,55 +20,21 @@ function Feed() {
   const [articleContent, setArticleContent] = useState(null);
   const [articleComments, setArticleComments] = useState([]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const contentResponse = await getContent(contentPage, itemsPerPage);
-        console.log('Backend content:', contentResponse);
-        setContent(contentResponse || []);
+  const RSS2JSON_API_KEY = 'qaroytlfmvhtdcvktht1hraeubbedie4ggiogmaz'; // Replace with your RSS2JSON API key if needed
+  const VIDEO_API = `https://api.rss2json.com/v1/api.json?rss_url=https://www.youtube.com/feeds/videos.xml?channel_id=UCWv7vMbMWH4-V0ZXdmDpPBA&api_key=${RSS2JSON_API_KEY}`;
+  const ARTICLE_API = 'https://dev.to/api/articles?tag=softwareengineering';
 
-        const videosResponse = await getVideos();
-        console.log('YouTube videos:', videosResponse.data);
-        setVideos(videosResponse.data.items || []);
+  // Helper function to check if a URL is a YouTube link
+  const isYouTubeUrl = (url) => {
+    return url && (url.includes('youtube.com') || url.includes('youtu.be'));
+  };
 
-        const articlesResponse = await getArticles();
-        console.log('Dev.to articles:', articlesResponse.data);
-        setArticles(articlesResponse.data || []);
-
-        const audioResponse = await getAudio();
-        console.log('Audio:', audioResponse.data);
-        setAudio(audioResponse.data || []);
-      } catch (err) {
-        console.error('Feed error:', err);
-        setError('Failed to load feed');
-      }
-    };
-    fetchData();
-  }, [contentPage]);
-
-  useEffect(() => {
-    if (selectedArticle) {
-      const fetchArticleDetails = async () => {
-        try {
-          const response = await getArticleById(selectedArticle.id);
-          console.log('Article content:', response.data);
-          setArticleContent(response.data);
-
-          const commentsResponse = await getArticleComments(selectedArticle.id);
-          console.log('Article comments:', commentsResponse.data);
-          setArticleComments(commentsResponse.data || []);
-        } catch (err) {
-          console.error('Error fetching article details:', err);
-          setArticleContent(null);
-          setArticleComments([]);
-        }
-      };
-      fetchArticleDetails();
-    } else {
-      setArticleContent(null);
-      setArticleComments([]);
-    }
-  }, [selectedArticle]);
+  // Helper function to extract YouTube video ID
+  const getYouTubeVideoId = (url) => {
+    const regex = /(?:v=|\/)([0-9A-Za-z_-]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  };
 
   const paginate = (data, page) => {
     const start = (page - 1) * itemsPerPage;
@@ -84,23 +47,103 @@ function Feed() {
     setSelectedArticle(null);
   };
 
+  // Fetch data and store locally
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Load from localStorage first, fetch if not present
+        let storedVideos = JSON.parse(localStorage.getItem('videos') || '[]');
+        let storedArticles = JSON.parse(localStorage.getItem('articles') || '[]');
+
+        if (storedVideos.length === 0) {
+          const videoResponse = await axios.get(VIDEO_API);
+          storedVideos = videoResponse.data.items || [];
+          localStorage.setItem('videos', JSON.stringify(storedVideos));
+        }
+        setVideos(storedVideos);
+
+        if (storedArticles.length === 0) {
+          const articleResponse = await axios.get(ARTICLE_API);
+          storedArticles = articleResponse.data || [];
+          localStorage.setItem('articles', JSON.stringify(storedArticles));
+        }
+        setArticles(storedArticles);
+
+        // Combine content (videos and articles)
+        const allContent = [
+          ...storedVideos.map(video => ({
+            id: video.guid,
+            title: video.title,
+            created_at: video.pubDate,
+            category_name: 'Fullstack Development',
+          })),
+          ...storedArticles.map(article => ({
+            id: article.id,
+            title: article.title,
+            created_at: article.published_at,
+            category_name: 'DevOps',
+          })),
+        ];
+        setContent(allContent);
+      } catch (err) {
+        console.error('Feed error:', err);
+        setError('Failed to load feed');
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Fetch article details and comments when selected
+  useEffect(() => {
+    if (selectedArticle) {
+      const fetchArticleDetails = async () => {
+        try {
+          // Simulate article content and comments from the initial article data
+          const article = articles.find(a => a.id === selectedArticle.id);
+          if (article) {
+            setArticleContent({
+              published_at: article.published_at,
+              user: { name: article.user?.name || 'Unknown' },
+              tag_list: article.tag_list || [],
+              description: article.description || 'No description available',
+              body_html: article.body_html || '<p>No full content available</p>',
+            });
+            // Simulate comments (Dev.to API doesn't provide comments directly via this endpoint)
+            setArticleComments([
+              { id_code: `comment-${article.id}-1`, user: { name: 'User1' }, body_html: '<p>Great article!</p>' },
+              { id_code: `comment-${article.id}-2`, user: { name: 'User2' }, body_html: '<p>Very informative.</p>' },
+            ]);
+          }
+        } catch (err) {
+          console.error('Error fetching article details:', err);
+          setArticleContent(null);
+          setArticleComments([]);
+        }
+      };
+      fetchArticleDetails();
+    } else {
+      setArticleContent(null);
+      setArticleComments([]);
+    }
+  }, [selectedArticle, articles]);
+
   return (
     <div>
       {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
-{/* <Navbar /> */}
       <div className="your-feed">
         <h2 className="title">CONTENT</h2>
         <div className="feed-grid">
           {content.length > 0 ? (
-            content.map((item) => (
+            paginate(content, contentPage).map((item) => (
               <div key={item.id} className="feed-cards">
-                <span className="cat">Backend</span>
+                <span className="cat">{item.category_name}</span>
                 <h3 className="feed-title">{item.title}</h3>
                 <p className="date">{item.created_at}</p>
               </div>
             ))
           ) : (
-            <p>No backend content available</p>
+            <p>No content available</p>
           )}
         </div>
         <div style={{ textAlign: 'center', marginTop: '1rem' }}>
@@ -114,7 +157,7 @@ function Feed() {
           <span>Page {contentPage}</span>
           <button
             onClick={() => setContentPage((prev) => prev + 1)}
-            disabled={content.length < itemsPerPage}
+            disabled={contentPage * itemsPerPage >= content.length}
             style={{ marginLeft: '10px', padding: '5px 10px' }}
           >
             Next
@@ -200,45 +243,6 @@ function Feed() {
         </div>
       </div>
 
-      <div className="your-feed">
-        <h2 className="title">AUDIO</h2>
-        <div className="feed-grid">
-          {paginate(audio, audioPage).length > 0 ? (
-            paginate(audio, audioPage).map((track, index) => (
-              <div key={index} className="audio-card">
-                <span className="cat">{track.category}</span>
-                <h3 className="feed-title">{track.title}</h3>
-                <p className="date">{track.date}</p>
-                {track.audio_url && (
-                  <div className="audio-player">
-                    <audio controls src={track.audio_url} />
-                  </div>
-                )}
-              </div>
-            ))
-          ) : (
-            <p>No audio available</p>
-          )}
-        </div>
-        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-          <button
-            onClick={() => setAudioPage((prev) => Math.max(prev - 1, 1))}
-            disabled={audioPage === 1}
-            style={{ marginRight: '10px', padding: '5px 10px' }}
-          >
-            Previous
-          </button>
-          <span>Page {audioPage}</span>
-          <button
-            onClick={() => setAudioPage((prev) => prev + 1)}
-            disabled={audioPage * itemsPerPage >= audio.length}
-            style={{ marginLeft: '10px', padding: '5px 10px' }}
-          >
-            Next
-          </button>
-        </div>
-      </div>
-
       {selectedVideo && (
         <div
           style={{
@@ -282,7 +286,7 @@ function Feed() {
             <iframe
               width="100%"
               height="400"
-              src={`https://www.youtube.com/embed/${selectedVideo.link.split('v=')[1].split('&')[0]}`}
+              src={`https://www.youtube.com/embed/${getYouTubeVideoId(selectedVideo.link)}`}
               title={selectedVideo.title}
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -337,7 +341,7 @@ function Feed() {
             {articleContent ? (
               <div>
                 <p>Published on: {articleContent.published_at}</p>
-                <p><strong>Author:</strong> {articleContent.user?.name || 'Unknown'}</p>
+                <p><strong>Author:</strong> {articleContent.user.name || 'Unknown'}</p>
                 <p><strong>Tags:</strong> {Array.isArray(articleContent.tag_list) ? articleContent.tag_list.join(', ') : articleContent.tag_list || 'None'}</p>
                 <p><strong>Description:</strong> {articleContent.description || 'No description available'}</p>
                 <div
@@ -357,7 +361,7 @@ function Feed() {
                     <h4>Comments:</h4>
                     {articleComments.map(comment => (
                       <div key={comment.id_code} style={{ marginBottom: '10px', borderBottom: '1px solid #ccc', paddingBottom: '10px' }}>
-                        <p><strong>{comment.user?.name || 'Anonymous'}:</strong></p>
+                        <p><strong>{comment.user.name || 'Anonymous'}:</strong></p>
                         <div
                           dangerouslySetInnerHTML={{ __html: comment.body_html }}
                           style={{ lineHeight: '1.6', fontSize: '0.9rem' }}

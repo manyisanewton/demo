@@ -72,3 +72,23 @@ body {
     }
 }
 
+.filter-section {
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .filter-select {
+    padding: 0.5rem;
+    border: 1px solid #11203A;
+    border-radius: 5px;
+    font-size: 1rem;
+    background-color: #ffffff;
+    cursor: pointer;
+  }
+  
+  .filter-select:focus {
+    outline: none;
+    border-color: #f8510b;
+  }

@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { register } from '../api';
+import { register, getUserProfile } from '../api';
 
 function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -32,9 +32,9 @@ function RegisterPage() {
       const { data } = await register(name, email, phone, role, password);
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
-      localStorage.setItem('user_role', data.role); // Store role for ProtectedRoute
-
-      // Navigate based on role
+      localStorage.setItem('user_role', data.role);
+      const profileResponse = await getUserProfile();
+      localStorage.setItem('user_id', profileResponse.data.id);
       switch (data.role) {
         case 'Admin':
           navigate('/adminsdashboard');
@@ -58,7 +58,6 @@ function RegisterPage() {
       }
     }
   };
-
   const redirectToLogin = () => {
     navigate('/login');
   };

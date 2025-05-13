@@ -1,11 +1,7 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000';
-const RSS2JSON_API_KEY = 'qaroytlfmvhtdcvktht1hraeubbedie4ggiogmaz';
-const VIDEO_API = `https://api.rss2json.com/v1/api.json?rss_url=https://www.youtube.com/feeds/videos.xml?channel_id=UC8butISFwT-Wl7EV0hUK0BQ&api_key=${RSS2JSON_API_KEY}`;
-const ARTICLE_API = 'https://dev.to/api/articles';
-const AUDIO_API = `https://api.rss2json.com/v1/api.json?rss_url=https://feeds.simplecast.com/4r7G7Z8a&api_key=${RSS2JSON_API_KEY}`;
-const LISTENNOTES_API_KEY = '7414408b9ba6479aba86eb06545f7a98';
+// Use environment variable for backend URL
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -57,9 +53,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
-const useCorsProxy = (url) => `${CORS_PROXY}${url}`;
 
 export const login = async (email, password) => {
   const response = await api.post('/auth/login', { email, password });
@@ -130,52 +123,18 @@ export const getComments = async (contentId) => {
 
 export const getVideos = async () => {
   try {
-    const response = await axios.get(VIDEO_API);
-    return {
-      data: {
-        items: response.data.items.map(item => ({
-          guid: item.guid,
-          title: item.title,
-          link: item.link,
-          pubDate: item.pubDate,
-        })),
-      },
-    };
+    const response = await api.get('/proxy/youtube-videos');
+    return { data: response.data };
   } catch (error) {
     console.error('Error fetching videos:', error);
-    if (error.response?.status === 403 || error.response?.status === 422) {
-      try {
-        const response = await axios.get(useCorsProxy(VIDEO_API));
-        return {
-          data: {
-            items: response.data.items.map(item => ({
-              guid: item.guid,
-              title: item.title,
-              link: item.link,
-              pubDate: item.pubDate,
-            })),
-          },
-        };
-      } catch (proxyError) {
-        console.error('Error with CORS proxy for videos:', proxyError);
-        throw proxyError;
-      }
-    }
     throw error;
   }
 };
 
 export const getArticles = async () => {
   try {
-    const response = await axios.get(ARTICLE_API);
-    return {
-      data: response.data.map(article => ({
-        id: article.id,
-        title: article.title,
-        url: article.url,
-        published_at: article.published_at,
-      })),
-    };
+    const response = await api.get('/proxy/devto-articles');
+    return { data: response.data };
   } catch (error) {
     console.error('Error fetching articles:', error);
     throw error;
@@ -184,7 +143,7 @@ export const getArticles = async () => {
 
 export const getArticleById = async (articleId) => {
   try {
-    const response = await axios.get(`https://dev.to/api/articles/${articleId}`);
+    const response = await api.get(`/proxy/devto-article/${articleId}`);
     return { data: response.data };
   } catch (error) {
     console.error('Error fetching article by ID:', error);
@@ -194,7 +153,9 @@ export const getArticleById = async (articleId) => {
 
 export const getArticleComments = async (articleId) => {
   try {
-    const response = await axios.get(`https://dev.to/api/comments?a_id=${articleId}`);
+    const response = await api.get('/proxy/devto-comments', {
+      params: { a_id: articleId }
+    });
     return { data: response.data };
   } catch (error) {
     console.error('Error fetching article comments:', error);
@@ -204,15 +165,8 @@ export const getArticleComments = async (articleId) => {
 
 export const getAudio = async () => {
   try {
-    const response = await axios.get(AUDIO_API);
-    return {
-      data: response.data.items.map(item => ({
-        title: item.title,
-        category: 'Podcast',
-        date: item.pubDate,
-        audio_url: item.enclosure.url || '',
-      })),
-    };
+    const response = await api.get('/proxy/podcasts');
+    return { data: response.data };
   } catch (error) {
     console.error('Error fetching audio:', error);
     throw error;

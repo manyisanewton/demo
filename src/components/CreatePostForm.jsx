@@ -1,14 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./CreatePostForm.css";
 import { FaUpload } from "react-icons/fa";
-import api from "../api";
-import io from 'socket.io-client';
-
-const socket = io('http://localhost:5000', {
-  auth: {
-    token: localStorage.getItem('access_token')?.replace('Bearer ', '')
-  }
-});
 
 const CreatePostForm = () => {
   const [formData, setFormData] = useState({
@@ -16,46 +8,39 @@ const CreatePostForm = () => {
     category_id: null,
     description: "",
     file: null,
-    contentId: null,
     media_url: null,
+    contentId: null,
   });
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [pendingPosts, setPendingPosts] = useState([]);
+  const [editingPostId, setEditingPostId] = useState(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Pending");
   const fileInputRef = useRef(null);
 
-  // Fetch categories on mount
+  // Static categories (since we're not using a backend)
+  const categories = [
+    { id: 1, name: "Fullstack Development" },
+    { id: 2, name: "Cyber Security" },
+  ];
+
+  // Load pending posts from localStorage on mount
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await api.get('/categories');
-        console.log("Categories fetched:", response.data); // Debug log
-        setCategories(response.data);
-      } catch (err) {
-        setError("Failed to load categories: " + (err.response?.data?.error || err.message));
-        console.error("Category fetch error:", err);
-      }
-    };
-    fetchCategories();
-
-    // Listen for real-time status updates
-    socket.on('content_status_update', (data) => {
-      if (data.content_id === formData.contentId) {
-        setStatus(data.status);
-      }
-    });
-
-    // Cleanup on unmount
-    return () => {
-      socket.off('content_status_update');
-    };
-  }, [formData.contentId]);
+    const storedPosts = JSON.parse(localStorage.getItem('pendingPosts') || '[]');
+    setPendingPosts(storedPosts);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     if (name === "file") {
-      setFormData({ ...formData, file: files[0], media_url: null });
+      const file = files[0];
+      if (file) {
+        // Convert file to base64 for local storage
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormData({ ...formData, file: file, media_url: reader.result });
+        };
+        reader.readAsDataURL(file);
+      }
     } else if (name === "category_id") {
       setFormData({ ...formData, [name]: value ? parseInt(value) : null });
     } else {
@@ -63,64 +48,65 @@ const CreatePostForm = () => {
     }
   };
 
-  const handleFileUpload = async () => {
-    if (!formData.file) {
-      setError("Please select a file to upload.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    const formDataToUpload = new FormData();
-    formDataToUpload.append("file", formData.file);
-    try {
-      const response = await api.post("/content/upload", formDataToUpload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      setFormData({ ...formData, media_url: response.data.media_url, file: null });
-    } catch (err) {
-      setError("File upload failed: " + (err.response?.data?.error || err.message));
-      console.error("File upload error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.category_id) {
       setError("Please select a category.");
       return;
     }
-    setLoading(true);
+    if (!formData.title || !formData.description) {
+      setError("Title and description are required.");
+      return;
+    }
     setError("");
 
-    const payload = {
+    const newPost = {
+      id: editingPostId || Date.now(), // Use existing ID if editing, otherwise generate new
       title: formData.title,
       body: formData.description,
       media_url: formData.media_url || null,
       content_type: formData.media_url ? "Video" : "Article",
       status: "Pending",
       category_id: formData.category_id,
+      category_name: categories.find(cat => cat.id === formData.category_id)?.name || "Unknown",
     };
 
-    try {
-      const response = await api.post("/content", payload);
-      setFormData({ 
-        ...formData, 
-        contentId: response.data.id, 
-        title: "", 
-        description: "", 
-        file: null, 
-        media_url: null, 
-        category_id: null 
-      });
-      setStatus("Pending");
-    } catch (err) {
-      setError("Failed to submit post for approval: " + (err.response?.data?.error || err.message));
-      console.error("Submit error:", err);
-    } finally {
-      setLoading(false);
+    let updatedPosts;
+    if (editingPostId) {
+      // Update existing post
+      updatedPosts = pendingPosts.map(post =>
+        post.id === editingPostId ? newPost : post
+      );
+      setEditingPostId(null);
+    } else {
+      // Add new post
+      updatedPosts = [...pendingPosts, newPost];
     }
+
+    setPendingPosts(updatedPosts);
+    localStorage.setItem('pendingPosts', JSON.stringify(updatedPosts));
+    setFormData({
+      title: "",
+      category_id: null,
+      description: "",
+      file: null,
+      media_url: null,
+      contentId: null,
+    });
+    setStatus("Pending");
+  };
+
+  const handleEdit = (post) => {
+    setFormData({
+      title: post.title,
+      category_id: post.category_id,
+      description: post.body,
+      file: null,
+      media_url: post.media_url,
+      contentId: post.id,
+    });
+    setEditingPostId(post.id);
+    setStatus("Pending");
   };
 
   const handleUploadAreaClick = () => {
@@ -142,13 +128,18 @@ const CreatePostForm = () => {
     e.currentTarget.classList.remove('drag-over');
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      setFormData({ ...formData, file: files[0], media_url: null });
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, file: file, media_url: reader.result });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   return (
     <div className="create-post">
-      <h2>Create Post</h2>
+      <h2>{editingPostId ? "Edit Post" : "Create Post"}</h2>
       <p>Share something with the community</p>
       <form className="post-form" onSubmit={handleSubmit}>
         <label>Title:</label>
@@ -169,13 +160,9 @@ const CreatePostForm = () => {
           required
         >
           <option value="">Select a category</option>
-          {categories.length > 0 ? (
-            categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))
-          ) : (
-            <option value="" disabled>No categories available</option>
-          )}
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
+          ))}
         </select>
 
         <label>Description:</label>
@@ -189,8 +176,8 @@ const CreatePostForm = () => {
 
         <label>Upload a File (Video or Image):</label>
         <div className="file-upload">
-          <div 
-            className="upload-area" 
+          <div
+            className="upload-area"
             onClick={handleUploadAreaClick}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -198,10 +185,19 @@ const CreatePostForm = () => {
           >
             <FaUpload className="upload-icon" />
             <p>
-              {formData.file?.name || formData.media_url || "Choose a file or drag & drop it here!"}
+              {formData.file?.name || formData.media_url ? "File selected" : "Choose a file or drag & drop it here!"}
               <br />
               JPEG, PNG, MP4 formats, up to 50 MB.
             </p>
+            {formData.media_url && (
+              <div className="media-preview">
+                {formData.media_url.startsWith('data:image/') ? (
+                  <img src={formData.media_url} alt="Preview" style={{ maxWidth: '100px', maxHeight: '100px' }} />
+                ) : formData.media_url.startsWith('data:video/') ? (
+                  <video src={formData.media_url} controls style={{ maxWidth: '100px', maxHeight: '100px' }} />
+                ) : null}
+              </div>
+            )}
             <input
               id="file-upload"
               type="file"
@@ -211,34 +207,50 @@ const CreatePostForm = () => {
               ref={fileInputRef}
               style={{ display: "none" }}
             />
-            <button
-              type="button"
-              className="upload-btn"
-              onClick={handleFileUpload}
-              disabled={!formData.file || loading}
-            >
-              {loading ? "Uploading..." : "Upload File"}
-            </button>
           </div>
         </div>
 
-        <button 
-          type="submit" 
-          disabled={loading || !formData.title || !formData.description || !formData.category_id}
+        <button
+          type="submit"
+          disabled={!formData.title || !formData.description || !formData.category_id}
         >
-          {loading ? "Submitting..." : "Submit for Approval"}
+          {editingPostId ? "Update Post" : "Submit for Approval"}
         </button>
-        {formData.contentId && (
-          <button
-            type="button"
-            className={status === "Published" ? "approved-btn" : "pending-btn"}
-            disabled={true}
-          >
-            {status === "Published" ? "Approved" : "Pending Approval"}
-          </button>
-        )}
         {error && <p className="error">{error}</p>}
       </form>
+
+      <div className="pending-posts">
+        <h3>Pending Posts</h3>
+        {pendingPosts.length > 0 ? (
+          <div className="posts-list">
+            {pendingPosts.map(post => (
+              <div key={post.id} className="post-item">
+                <h4>{post.title}</h4>
+                <p><strong>Category:</strong> {post.category_name}</p>
+                <p><strong>Description:</strong> {post.body}</p>
+                {post.media_url && (
+                  <div className="media-preview">
+                    {post.media_url.startsWith('data:image/') ? (
+                      <img src={post.media_url} alt={post.title} style={{ maxWidth: '100px', maxHeight: '100px' }} />
+                    ) : post.media_url.startsWith('data:video/') ? (
+                      <video src={post.media_url} controls style={{ maxWidth: '100px', maxHeight: '100px' }} />
+                    ) : null}
+                  </div>
+                )}
+                <p><strong>Status:</strong> {post.status}</p>
+                <button
+                  className="edit-btn"
+                  onClick={() => handleEdit(post)}
+                >
+                  Edit
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p>No pending posts.</p>
+        )}
+      </div>
     </div>
   );
 };

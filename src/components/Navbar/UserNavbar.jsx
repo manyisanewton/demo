@@ -35,7 +35,7 @@ const Navbar = () => {
       </ul>
       <ul className="logout-link">
         <li>
-          <NavLink to="/logout" onClick={handleLogout} className={({ isActive }) => isActive ? 'active' : ''}>
+          <NavLink to="/" onClick={handleLogout} className={({ isActive }) => isActive ? 'active' : ''}>
             <FaSignOutAlt style={{color: '#ffffff', fontSize: '20px'}} /> Logout
           </NavLink>
         </li>
